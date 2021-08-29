@@ -9,4 +9,4 @@ Viewing files of technological logs 1C (WinAPI)
   - Displaying the working server in the status bar for the TJ event.
   - Visual highlighting of the current event.
 
-![Image alt](https://github.com/sdf1979/YellowViewer/tree/main/screenshots/001.png)
+![Deadlock analysis](https://github.com/sdf1979/YellowViewer/tree/main/screenshots/001.png)
