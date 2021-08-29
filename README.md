@@ -9,5 +9,8 @@ Viewing files of technological logs 1C (WinAPI)
   - Displaying the working server in the status bar for the tech. log event.
   - Visual highlighting of the current event.
 
-![Deadlock analysis](https://github.com/sdf1979/YellowViewer/tree/main/screenshots/001.png)
-![Wait timeout analysis](https://github.com/sdf1979/YellowViewer/tree/main/screenshots/001.png)
+## Deadlock analysis
+![Deadlock analysis](screenshots/001.png)
+
+## Wait timeout analysis
+![Wait timeout analysis](screenshots/001.png)
