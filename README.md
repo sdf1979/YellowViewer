@@ -8,3 +8,5 @@ Viewing files of technological logs 1C (WinAPI)
   - Sorting events by time from different working servers of the 1C cluster.
   - Displaying the working server in the status bar for the TJ event.
   - Visual highlighting of the current event.
+
+![Image alt](https://github.com/sdf1979/YellowViewer/tree/main/screenshots/001.png)
