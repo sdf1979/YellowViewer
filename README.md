@@ -10,3 +10,4 @@ Viewing files of technological logs 1C (WinAPI)
   - Visual highlighting of the current event.
 
 ![Deadlock analysis](https://github.com/sdf1979/YellowViewer/tree/main/screenshots/001.png)
+![Wait timeout analysis](https://github.com/sdf1979/YellowViewer/tree/main/screenshots/001.png)
