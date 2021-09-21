@@ -3,6 +3,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <unordered_map>
 #include "wnd.h"
 #include "text_data.h"
 #include "directory_watcher.h"
@@ -40,12 +41,13 @@ namespace CWindows{
         HFONT font_;
         HBRUSH hbrush_grey_;
         size_t start_index_event_;
-        std::vector<std::wstring> display_lines_;
+        std::vector<std::pair<uint64_t, std::wstring>> display_lines_;
                 
         void DisplayCaret(HDC hdc);
         void MarkCurrentEvent(int x, int y);
         std::unique_ptr<TechLog1C::EventOut> GetCurrentEvent(int x, int y);
         std::unordered_map<UINT, std::wstring> selection_condition_;
+        std::unordered_map<std::uint32_t, COLORREF> line_color_;
         
         LRESULT OnSize(WPARAM wparam, LPARAM lparam);
         LRESULT OnEraseBkgnd(WPARAM wparam, LPARAM lparam);

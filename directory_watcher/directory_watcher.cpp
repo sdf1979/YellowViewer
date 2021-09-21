@@ -335,21 +335,21 @@ namespace TechLog1C{
         return {};
     }
 
-    std::vector<wstring> DirectoryWatcher::GetLines(unsigned long long start_line, unsigned int count_line){
+    vector<pair<uint64_t, wstring>> DirectoryWatcher::GetLines(unsigned long long start_line, unsigned int count_line){
          if(!files_is_read_) return {};
 
         LoadJournal(&events_, start_line, count_line);
                 
         if(!events_.size()) return {};
         
-        vector<wstring> lines;
+        vector<pair<uint64_t, wstring>> lines;
         unsigned long long cur_line = events_[0].count_lines_agr_ - events_[0].count_lines_ + 1;
         unsigned long long end_line = start_line + count_line;
         for(auto it_events = events_.begin();it_events != events_.end();++it_events){
             vector<wstring> event_lines = it_events->AsWStrings();
             for(auto it_lines = event_lines.begin();it_lines != event_lines.end();++it_lines){
                 if(cur_line >= start_line && cur_line <= end_line){
-                    lines.push_back(move(*it_lines));
+                    lines.push_back({it_events->id_, move(*it_lines)});
                 }
                 ++cur_line;
                 if(cur_line > end_line) break;
@@ -401,11 +401,11 @@ namespace TechLog1C{
         return db_->LoadEntryObject(id);
     }
 
-    vector<uint32_t> DirectoryWatcher::AnalyzeTDeadlock(EventOut* event_out){
+    vector<pair<uint32_t, uint8_t>> DirectoryWatcher::AnalyzeTDeadlock(EventOut* event_out){
 
-        //Формируем массив идентификаторов строк для вывода
-        vector<uint32_t> id_rows;
-        id_rows.push_back(event_out->id_);
+        //Формируем массив идентификаторов строк для вывода pair<id строки, признак (0 - жертва, 1 - виновник)>
+        vector<pair<uint32_t, uint8_t>> id_rows;
+        id_rows.push_back({event_out->id_, 0});
 
         JournalEntryObject event_obj = LoadEntryObject(event_out->id_);
         string event_str = event_out->AsString();
@@ -427,9 +427,9 @@ namespace TechLog1C{
             id = connect_fail_first.id_; 
         }
         //Добавляем в массив идентификатор строки для вывода
-        if(connect_fail_first.id_) id_rows.push_back(connect_fail_first.id_);
+        if(connect_fail_first.id_) id_rows.push_back({connect_fail_first.id_, 0});
 
-        //Блокировка первого соединения, которую не удалось установить
+        //Блокировка второго соединения, которую не удалось установить
         JournalEntryObject connect_fail_second;
         id = event_obj.id_;
         TLock tlock_fail_second;
@@ -443,7 +443,7 @@ namespace TechLog1C{
             id = connect_fail_second.id_; 
         }
         //Добавляем в массив идентификатор строки для вывода
-        if(connect_fail_second.id_) id_rows.push_back(connect_fail_second.id_);
+        if(connect_fail_second.id_) id_rows.push_back({connect_fail_second.id_, 1});
         
         //Начало транзакции первого соединения
         JournalEntryObject begin_trun_first;
@@ -460,7 +460,7 @@ namespace TechLog1C{
             }
         }
         //Добавляем в массив идентификатор строки для вывода
-        if(begin_trun_first.id_) id_rows.push_back(begin_trun_first.id_);
+        if(begin_trun_first.id_) id_rows.push_back({begin_trun_first.id_, 0});
 
         //Начало транзакции второго соединения
         JournalEntryObject begin_trun_second;
@@ -477,7 +477,7 @@ namespace TechLog1C{
             }
         }
         //Добавляем в массив идентификатор строки для вывода
-        if(begin_trun_second.id_) id_rows.push_back(begin_trun_second.id_);
+        if(begin_trun_second.id_) id_rows.push_back({begin_trun_second.id_, 1});
 
         //Успешные несовместимые блокировки первого соединения
         vector<JournalEntryObject> connects_succes = db_->PrevAll(begin_trun_first.id_, id, "TLOCK", t_deadlock.ConnectIdFirst());
@@ -486,7 +486,7 @@ namespace TechLog1C{
             TLock tlock_success = AnalayzerLock::ParseTLock(event_tmp.AsString());
             if(tlock_success.Locks().IsLocking(t_deadlock.LocksSecond())){
                 //Добавляем в массив идентификатор строки для вывода
-                id_rows.push_back(connect_succes->id_);
+                id_rows.push_back({connect_succes->id_, 0});
             }
         }
         
@@ -497,20 +497,22 @@ namespace TechLog1C{
             TLock tlock_success = AnalayzerLock::ParseTLock(event_tmp.AsString());
             if(tlock_success.Locks().IsLocking(t_deadlock.LocksFirst())){
                 //Добавляем в массив идентификатор строки для вывода
-                id_rows.push_back(connect_succes->id_);
+                id_rows.push_back({connect_succes->id_, 1});
             }
         }
         
-        sort(id_rows.begin(), id_rows.end());
+        sort(id_rows.begin(), id_rows.end(),[](const pair<uint32_t, uint8_t>&lhs, const pair<uint32_t, uint8_t>&rhs){
+            return lhs.first < rhs.first;
+        });
 
         return id_rows;
     }
 
-    vector<uint32_t> DirectoryWatcher::AnalyzeTTimeOut(EventOut* event_out){
+    vector<pair<uint32_t, uint8_t>> DirectoryWatcher::AnalyzeTTimeOut(EventOut* event_out){
         
-        //Формируем массив идентификаторов строк для вывода
-        vector<uint32_t> id_rows;
-        id_rows.push_back(event_out->id_);
+        //Формируем массив идентификаторов строк для вывода pair<id строки, признак (0 - жертва, 1 - виновник)>
+        vector<pair<uint32_t, uint8_t>> id_rows;
+        id_rows.push_back({event_out->id_, 0});
 
         JournalEntryObject event_obj = LoadEntryObject(event_out->id_);
 
@@ -525,7 +527,7 @@ namespace TechLog1C{
                 EventOut event_tmp(files_[begin_trun_fail.file_id_].first.get(), begin_trun_fail.start_, begin_trun_fail.length_);
                 if(event_tmp.AsString().find("Func=BeginTransaction") != string::npos){
                     //Добавляем в массив идентификатор строки для вывода
-                    id_rows.push_back(begin_trun_fail.id_);
+                    id_rows.push_back({begin_trun_fail.id_, 0});
                     break;
                 }
                 else{
@@ -548,7 +550,7 @@ namespace TechLog1C{
                     EventOut event_tmp(files_[connect_fail.file_id_].first.get(), connect_fail.start_, connect_fail.length_);
                     tlock_fail = AnalayzerLock::ParseTLock(event_tmp.AsString());
                     //Добавляем в массив идентификатор строки для вывода
-                    id_rows.push_back(connect_fail.id_);
+                    id_rows.push_back({connect_fail.id_, 0});
                     break;
                 }
                 else{
@@ -572,7 +574,7 @@ namespace TechLog1C{
                     EventOut event_tmp(files_[begin_trun.file_id_].first.get(), begin_trun.start_, begin_trun.length_);
                     if(event_tmp.AsString().find("Func=BeginTransaction") != string::npos){
                         //Добавляем в массив идентификатор строки для вывода
-                        id_rows.push_back(begin_trun.id_);
+                        id_rows.push_back({begin_trun.id_, 1});
                         break; 
                     }
                     else{
@@ -592,21 +594,23 @@ namespace TechLog1C{
                 TLock tlock_success = AnalayzerLock::ParseTLock(event_tmp.AsString());
                 if(tlock_success.Locks().IsLocking(tlock_fail.Locks())){
                     //Добавляем в массив идентификатор строки для вывода
-                    id_rows.push_back(connect_succes->id_);
+                    id_rows.push_back({connect_succes->id_, 1});
                 }
             }
         }
 
-        sort(id_rows.begin(), id_rows.end());
+        sort(id_rows.begin(), id_rows.end(),[](const pair<uint32_t, uint8_t>&lhs, const pair<uint32_t, uint8_t>&rhs){
+            return lhs.first < rhs.first;
+        });
 
         return id_rows;
     }
 
-    vector<uint32_t> DirectoryWatcher::AnalyzeTLock(EventOut* event_out){
+    vector<pair<uint32_t, uint8_t>> DirectoryWatcher::AnalyzeTLock(EventOut* event_out){
         
-        //Формируем массив идентификаторов строк для вывода
-        vector<uint32_t> id_rows;
-        id_rows.push_back(event_out->id_);
+        //Формируем массив идентификаторов строк для вывода pair<id строки, признак (0 - жертва, 1 - виновник)>
+        vector<pair<uint32_t, uint8_t>> id_rows;
+        id_rows.push_back({event_out->id_, 0});
 
         uint32_t id;
 
@@ -623,7 +627,7 @@ namespace TechLog1C{
                 EventOut event_tmp(files_[begin_trun.file_id_].first.get(), begin_trun.start_, begin_trun.length_);
                 if(event_tmp.AsString().find("Func=BeginTransaction") != string::npos){
                     //Добавляем в массив идентификатор строки для вывода
-                    id_rows.push_back(begin_trun.id_);
+                    id_rows.push_back({begin_trun.id_, 0});
                     break;
                 }
                 else{
@@ -653,7 +657,7 @@ namespace TechLog1C{
                 }
             }
             //Добавляем в массив идентификатор строки для вывода
-            if(begin_trun.id_) id_rows.push_back(begin_trun.id_);
+            if(begin_trun.id_) id_rows.push_back({begin_trun.id_, 1});
 
             //Ищем не совместимые блокировки
             vector<JournalEntryObject> connects_succes = db_->PrevAll(begin_trun.id_, id, "TLOCK", *it_wait);
@@ -662,12 +666,14 @@ namespace TechLog1C{
                 TLock tlock_success = AnalayzerLock::ParseTLock(event_tmp.AsString());
                 if(tlock_success.Locks().IsLocking(tlock.Locks())){
                     //Добавляем в массив идентификатор строки для вывода
-                    id_rows.push_back(connect_succes->id_);
+                    id_rows.push_back({connect_succes->id_, 1});
                 }
             }
         }
 
-        sort(id_rows.begin(), id_rows.end());
+        sort(id_rows.begin(), id_rows.end(),[](const pair<uint32_t, uint8_t>&lhs, const pair<uint32_t, uint8_t>&rhs){
+            return lhs.first < rhs.first;
+        });
 
         return id_rows;
     }

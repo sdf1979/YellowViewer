@@ -51,7 +51,8 @@ namespace TechLog1C{
         void ReadDirectory(std::wstring directory_name);
         void ReadFiles();
         EventOut GetEvent(unsigned long long line);
-        std::vector<std::wstring> GetLines(unsigned long long start_line, unsigned int count_line);
+        //pair<id event, string line>
+        std::vector<std::pair<std::uint64_t, std::wstring>> GetLines(unsigned long long start_line, unsigned int count_line);
         unsigned int CountLines();
         int CallbackLoadFiles(int argc, char **argv, char **azColName);
         int CallbackLoadJournal(const JournalEntry* journal_entry);
@@ -61,9 +62,9 @@ namespace TechLog1C{
 
         void Find(std::wstring find_str);
         JournalEntryObject LoadEntryObject(unsigned int id);
-        std::vector<uint32_t> AnalyzeTDeadlock(EventOut* event_out);
-        std::vector<uint32_t> AnalyzeTTimeOut(EventOut* event_out);
-        std::vector<uint32_t> AnalyzeTLock(EventOut* event_out);
+        std::vector<std::pair<uint32_t, uint8_t>> AnalyzeTDeadlock(EventOut* event_out);
+        std::vector<std::pair<uint32_t, uint8_t>> AnalyzeTTimeOut(EventOut* event_out);
+        std::vector<std::pair<uint32_t, uint8_t>> AnalyzeTLock(EventOut* event_out);
     };
 
 }

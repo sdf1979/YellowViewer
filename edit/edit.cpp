@@ -36,12 +36,12 @@ namespace CWindows{
         TextProperty(hdc, wstr, &dx[0], size);
     }
 
-    size_t MaxSizeString(HDC hdc, const vector<wstring>& wstrings){
+    size_t MaxSizeString(HDC hdc, const vector<pair<uint64_t, wstring>>& wstrings){
         size_t max_size = 0;
         SIZE size = {0, 0};
         for(auto it = wstrings.begin(); it != wstrings.end(); ++it){
-            GetTextExtentPointW(hdc, &(*it)[0], it->size(), &size);
-            TextProperty(hdc, *it, &size);
+            GetTextExtentPointW(hdc, &(it->second)[0], it->second.size(), &size);
+            TextProperty(hdc, it->second, &size);
             if(max_size < size.cx) max_size = size.cx;
         }        
         return max_size;
@@ -96,6 +96,8 @@ namespace CWindows{
     void ExtStringOut(HDC hdc, const wstring& wstr, int x, int y){
         if(!wstr.size()) return;
 
+        HBRUSH hbrush_red = CreateSolidBrush(RGB(200, 0, 0));
+
         wstring_view wstr_view(wstr);
         wstring_view wstr_cur;
         while(wstr_view.size() > 0){
@@ -119,10 +121,10 @@ namespace CWindows{
         }
     }
 
-    void ExtStringOut(HDC hdc, const wstring& wstr, int x, int y, COLORREF bk_color){
-        COLORREF cur_color = SetBkColor(hdc, bk_color);
+    void ExtStringOut(HDC hdc, const wstring& wstr, int x, int y, COLORREF font_color){
+        COLORREF cur_color = SetTextColor(hdc, font_color);
         ExtStringOut(hdc, wstr, x, y);
-        SetBkColor(hdc, cur_color);
+        SetTextColor(hdc, cur_color);
     }
 
     void CopyClipboard(const wstring& str){
@@ -252,7 +254,7 @@ namespace CWindows{
     void Edit::DisplayCaret(HDC hdc){
         bool display_caret = false;
         if(display_lines_.size() && caret_line_ >= num_line_ && caret_line_ < num_line_ + display_lines_.size()){
-            vector<int> dx = TextPoint(hdc, display_lines_[caret_line_ - num_line_]);
+            vector<int> dx = TextPoint(hdc, display_lines_[caret_line_ - num_line_].second);
             int caret_x = 0;
             if(caret_column_ > 0){
                 if(caret_column_ < dx.size())
@@ -283,7 +285,7 @@ namespace CWindows{
             current_event_ = make_unique<TechLog1C::EventOut>(dw_->GetEvent(caret_line_));
             HDC hdc = GetDC(hwnd_);
             SelectObject(hdc, font_);
-            vector<int> dx = TextPoint(hdc, display_lines_[display_line]);
+            vector<int> dx = TextPoint(hdc, display_lines_[display_line].second);
             caret_column_ = lower_bound(dx.begin(), dx.end(), x + offset_x_) - dx.begin();
             ReleaseDC(hwnd_, hdc);
             InvalidateRect(hwnd_, NULL, false);
@@ -331,7 +333,18 @@ namespace CWindows{
                         Msg(GetParent(hwnd_), Utf8ToWideChar(current_event_->process_));
                     }                
                 }
-                ExtStringOut(hdc_mem, display_lines_[i], -offset_x_, y);
+                if(line_color_.size()){
+                    auto it = line_color_.find(display_lines_[i].first);
+                    if(it != line_color_.end()){
+                        ExtStringOut(hdc_mem, display_lines_[i].second, -offset_x_, y, it->second);
+                    }
+                    else{
+                        ExtStringOut(hdc_mem, display_lines_[i].second, -offset_x_, y);                        
+                    }
+                }
+                else{
+                    ExtStringOut(hdc_mem, display_lines_[i].second, -offset_x_, y);
+                }
                 y += height_string_;
             }
         }
@@ -576,6 +589,7 @@ namespace CWindows{
             CopyClipboard(current_event_->AsWString());
         }
         else if(
+            line_color_.clear();
             id == ID_CUSTOM_EVENT
             || id == ID_USR
             || id == ID_SESSION_ID
@@ -590,7 +604,8 @@ namespace CWindows{
                 SendMessageW(GetParent(hwnd_), WM_MENU_SELECTION, (WPARAM)ID_MENU_ITEM_FIND, (LPARAM)selection_condition_[id].c_str());
             }
         else if(id == ID_ANALIZE_TDEADLOCK || id == ID_ANALIZE_TTIMEOUT || id == ID_ANALIZE_TLOCK){
-            vector<uint32_t> id_rows;
+            line_color_.clear();
+            vector<pair<uint32_t, uint8_t>> id_rows;
             if(id == ID_ANALIZE_TDEADLOCK){
                id_rows = dw_->AnalyzeTDeadlock(current_event_on_rbutton_click_.get());
             }
@@ -603,8 +618,14 @@ namespace CWindows{
             wstring find = L"IdRow IN (";
             wstring delimetr = L"";
             for(auto it = id_rows.begin(); it != id_rows.end(); ++it){
-                find.append(delimetr).append(to_wstring(*it));
+                find.append(delimetr).append(to_wstring(it->first));
                 if(delimetr.empty()) delimetr = L",";
+                if(it->second == 0){
+                    line_color_.insert({it->first, RGB(200, 0, 0)});
+                }
+                else if(it->second == 1){
+                    line_color_.insert({it->first, RGB(0, 0, 250)});
+                }
             }
             find.append(L")");
             SendMessageW(GetParent(hwnd_), WM_MENU_SELECTION, (WPARAM)ID_MENU_ITEM_FIND, (LPARAM)find.c_str());
