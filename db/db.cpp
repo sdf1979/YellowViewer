@@ -225,11 +225,12 @@ namespace TechLog1C{
 
     void CreateTableFindResult(sqlite3* db){
         Exec(db, R"(
-        CREATE TABLE IF NOT EXISTS find_result(
+        CREATE TABLE IF NOT EXISTS mem.find_result(
             id INTEGER PRIMARY KEY,
             count_lines_agr INTEGER(4)            
-        );
-        CREATE INDEX idx_count_lines_agr_find_result ON find_result (
+        );)");
+        Exec(db, R"(
+        CREATE INDEX IF NOT EXISTS mem.idx_count_lines_agr_find_result ON find_result (
             count_lines_agr ASC,
             id
         );
@@ -280,7 +281,6 @@ namespace TechLog1C{
         CreateTableUserNames(db);
         CreateTableEvents(db);
         CreateTableJournal(db);
-        CreateTableFindResult(db);
         CreateTableSessionIds(db);
         CreateTableWaitConnections(db);        
     }
@@ -316,6 +316,29 @@ namespace TechLog1C{
         DB_NAME_(L"data.sqlite3"){}
 
     Db::~Db(){
+        Close();
+    }
+
+    void Db::Open(wstring path){
+        Close();
+        wstring db_file = path.append(L"\\").append(DB_NAME_);
+        new_db_ = !std::filesystem::exists(std::filesystem::path(db_file));
+        sqlite3_open(WideCharToUtf8(db_file).c_str(), &db_);
+        Exec(db_, "ATTACH DATABASE ':memory:' AS mem;");
+        Exec(db_, "PRAGMA synchronous = OFF;");
+        Exec(db_, "PRAGMA temp_store = MEMORY;");
+        Exec(db_, "PRAGMA journal_mode = OFF;");
+        Exec(db_, "PRAGMA cache_size = 7000;");
+        
+        if(new_db_){
+            CreateDb(db_);
+            CreateIndex();
+        }
+        CreateTableFindResult(db_);
+        PrepareInsertEvent(db_, &res_insert_event_);
+    }
+
+    void Db::Close(){
         if(!res_insert_file_) FinalizeRes(res_insert_file_);
         if(!res_insert_process_) FinalizeRes(res_insert_process_);
         if(!res_insert_event_name_) FinalizeRes(res_insert_event_name_);
@@ -326,29 +349,9 @@ namespace TechLog1C{
         if(!res_insert_p_process_name_) FinalizeRes(res_insert_p_process_name_);
         if(!res_insert_usr_name_) FinalizeRes(res_insert_usr_name_);
         if(!res_load_entry_object_) FinalizeRes(res_load_entry_object_);
-        Close();
-    }
-
-    void Db::Open(wstring path){
-        Close();
-        wstring db_file = path.append(L"\\").append(DB_NAME_);
-        new_db_ = !std::filesystem::exists(std::filesystem::path(db_file));
-        sqlite3_open(WideCharToUtf8(db_file).c_str(), &db_);
-        Exec(db_, "PRAGMA synchronous = OFF;");
-        Exec(db_, "PRAGMA temp_store = MEMORY;");
-        Exec(db_, "PRAGMA journal_mode = MEMORY;");
-        Exec(db_, "PRAGMA locking_mode = EXCLUSIVE;");
-        if(new_db_){
-            CreateDb(db_);
-            CreateIndex();
-        }
-        PrepareInsertEvent(db_, &res_insert_event_);
-    }
-
-    void Db::Close(){
         if(db_){
-            Exec(db_, "VACUUM");
             sqlite3_close(db_);
+            db_ = nullptr;
         }
     }
 
@@ -440,13 +443,14 @@ namespace TechLog1C{
     }
 
     void Db::ClearFindTable(){
-        Exec(db_, "DROP TABLE find_result;");
+        Exec(db_, "DROP INDEX mem.idx_count_lines_agr_find_result;");
+        Exec(db_, "DROP TABLE mem.find_result;");
         CreateTableFindResult(db_);        
     }
 
     void Db::InsertFindTable(uint32_t id, uint32_t count_lines_agr){
         if(!res_insert_find_table_){
-            string sql = "INSERT INTO find_result VALUES(@id, @count_lines_agr);";
+            string sql = "INSERT INTO mem.find_result VALUES(@id, @count_lines_agr);";
             Prepare(db_, sql.c_str(), &res_insert_find_table_);
         }
         sqlite3_bind_int(res_insert_find_table_, 1, id);
@@ -469,7 +473,7 @@ namespace TechLog1C{
 
     uint32_t Db::CountEventsFind(){
         sqlite3_stmt* res;
-        sqlite3_prepare_v2(db_, "SELECT COUNT(*) FROM find_result;", -1, &res, 0);
+        sqlite3_prepare_v2(db_, "SELECT COUNT(*) FROM mem.find_result;", -1, &res, 0);
         sqlite3_step(res);
         uint32_t count = sqlite3_column_int(res, 0);
         sqlite3_finalize(res);
@@ -489,7 +493,7 @@ namespace TechLog1C{
 
     uint32_t Db::CountLinesFind(){
         sqlite3_stmt* res;
-        sqlite3_prepare_v2(db_, "SELECT count_lines_agr FROM find_result ORDER BY count_lines_agr DESC LIMIT 1;", -1, &res, 0);
+        sqlite3_prepare_v2(db_, "SELECT count_lines_agr FROM mem.find_result ORDER BY count_lines_agr DESC LIMIT 1;", -1, &res, 0);
         sqlite3_step(res);
         uint32_t count = sqlite3_column_int(res, 0);
         sqlite3_finalize(res);
@@ -577,7 +581,7 @@ namespace TechLog1C{
                 processes.name,
                 journal.id
             FROM
-                find_result
+                mem.find_result as find_result
             INNER JOIN
                 journal
             ON
@@ -587,8 +591,8 @@ namespace TechLog1C{
             ON
                 processes.id = journal.process_id
             WHERE
-                find_result.id >= (SELECT id FROM find_result WHERE count_lines_agr >= @start ORDER BY count_lines_agr ASC LIMIT 1)
-                and find_result.id<= IFNULL((SELECT id FROM find_result WHERE count_lines_agr >= @end ORDER BY count_lines_agr ASC LIMIT 1), 4294967296)
+                find_result.id >= (SELECT id FROM mem.find_result WHERE count_lines_agr >= @start ORDER BY count_lines_agr ASC LIMIT 1)
+                and find_result.id<= IFNULL((SELECT id FROM mem.find_result WHERE count_lines_agr >= @end ORDER BY count_lines_agr ASC LIMIT 1), 4294967296)
             ORDER BY
                 find_result.id
             )";
@@ -654,29 +658,32 @@ namespace TechLog1C{
             uint64_t time = 0;
             pos = sv.find(".");
             if(pos != string_view::npos){
-                time = atoi(string(sv.substr(0, pos)).c_str()) * 1000000000000;
+                time = atoi(string(sv.substr(0, pos)).c_str()) * 1000000000000LL;
                 sv.remove_prefix(pos + 1);
                 pos = sv.find(".");
                 if(pos != string_view::npos){
-                    time += atoi(string(sv.substr(0, pos)).c_str()) * 100000000000000;
+                    time += atoi(string(sv.substr(0, pos)).c_str()) * 100000000000000LL;
                     sv.remove_prefix(pos + 1);
                     pos = sv.find(" ");
                     if(pos != string_view::npos){
-                        time += atoi(string(sv.substr(0, pos)).c_str()) * 10000000000000000;
+                        time += atoi(string(sv.substr(0, pos)).c_str()) * 10000000000000000LL;
                         sv.remove_prefix(pos + 1);
                         pos = sv.find(":");
                         if(pos != string_view::npos){
-                            time += atoi(string(sv.substr(0, pos)).c_str()) * 10000000000;
+                            time += atoi(string(sv.substr(0, pos)).c_str()) * 10000000000LL;
                             sv.remove_prefix(pos + 1);
                             pos = sv.find(":");
                             if(pos != string_view::npos){
-                                time += atoi(string(sv.substr(0, pos)).c_str()) * 100000000;
+                                time += atoi(string(sv.substr(0, pos)).c_str()) * 100000000LL;
                                 sv.remove_prefix(pos + 1);
                                 pos = sv.find(".");
                                 if(pos != string_view::npos){
-                                    time += atoi(string(sv.substr(0, pos)).c_str()) * 1000000;
+                                    time += atoi(string(sv.substr(0, pos)).c_str()) * 1000000LL;
                                     sv.remove_prefix(pos + 1);
                                     time += atoll(string(sv).c_str());
+                                }
+                                else{
+                                    time += atoi(string(sv).c_str()) * 1000000LL;                                    
                                 }
                             }
                         }
@@ -738,7 +745,8 @@ namespace TechLog1C{
         }
 
         cmd.append(" ORDER BY journal.id");
-        std::wcout << Utf8ToWideChar(cmd) << std::endl;
+        //TODO DEBUG
+        //std::wcout << Utf8ToWideChar(cmd) << std::endl;
         Exec(db_, cmd, obj, fcn); 
     }
 

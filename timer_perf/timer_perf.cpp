@@ -36,7 +36,8 @@ namespace TechLog1C{
         });
 
         for(auto it = measurements.begin(); it != measurements.end(); ++it){
-            wcout << Utf8ToWideChar(it->first) << " " << chrono::duration_cast<second_>(it->second.first).count() << " " << it->second.second << endl;
+            //TODO DEBUG
+            //wcout << Utf8ToWideChar(it->first) << " " << chrono::duration_cast<second_>(it->second.first).count() << " " << it->second.second << endl;
         }
     }
 

@@ -5,8 +5,6 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
-// #include <set>
-// #include <map>
 #include <stack>
 #include <functional>
 #include "timer_perf.h"
@@ -14,8 +12,9 @@
 namespace TechLog1C{
 
     class Parser;
-    using PtrFcn = void(*)(const char**, Parser* const);
 
+    using PtrFcn = void(*)(const char**, Parser* const);
+    
     enum class TypeChar{
         Digit,
         Colon,

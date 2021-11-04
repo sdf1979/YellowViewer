@@ -2,9 +2,6 @@
 #include <filesystem>
 #include <cstring>
 
-//TODO для отладки
-#include <iostream>
-
 namespace TechLog1C{
 
     using namespace std;
@@ -140,18 +137,6 @@ namespace TechLog1C{
     }
 
     uint64_t Reader::GetFileSize(){
-        // if(file_name_ == L"D:\\Лог ТЖ БИГ\\SED_ERP_2021_05_24\\CALL\\rphost_5020\\21052420.log"){
-            
-        //     filesystem::path path_001(L"D:\\Лог ТЖ БИГ\\SED_ERP_2021_05_24\\CALL\\rphost_5020\\21052420.log");
-        //     std::ifstream file_stream_001(path_001, ios::binary);
-        //     bool is_open_001 = file_stream_001.is_open();
-
-        //     filesystem::path path_002(L"D:\\Лог ТЖ БИГ\\SED_ERP_2021_05_24\\CALL\\rphost_5020\\21052419.log");
-        //     std::ifstream file_stream_002(path_002, ios::binary);
-        //     bool is_open_002 = file_stream_002.is_open();
-
-        //     int a = 1;
-        // }
         std::ifstream file_stream(file_name_.c_str(), ios::binary);
         bool is_open = file_stream.is_open(); 
         if(is_open){
@@ -177,13 +162,6 @@ namespace TechLog1C{
                     fs_.close();
                     return false;
                 }
-                // tm file_time = GetFileTime(file_name_);
-                // year_ = file_time.tm_year;
-                // month_ = file_time.tm_mon;
-                // day_ = file_time.tm_mday;
-                // hour_ = file_time.tm_hour;
-                // time_ = year_ * 1000000 + month_ * 10000 + day_ * 100 + hour_;
-                // process_ = GetProcessFromFile(file_name_);
                 pos_ = 3;
             }
             else{
@@ -196,6 +174,7 @@ namespace TechLog1C{
     bool Reader::Close(){
         if(buffer_){
             delete[] buffer_;
+            buffer_ = nullptr;
         }
         if(fs_.is_open()){
             fs_.close();
@@ -252,9 +231,6 @@ namespace TechLog1C{
 
     Reader::~Reader(){
         Close();
-        if(buffer_){
-            delete[] buffer_;
-        }
     }
 
     bool Reader::operator==(const Reader& reader) const{

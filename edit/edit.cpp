@@ -96,8 +96,6 @@ namespace CWindows{
     void ExtStringOut(HDC hdc, const wstring& wstr, int x, int y){
         if(!wstr.size()) return;
 
-        HBRUSH hbrush_red = CreateSolidBrush(RGB(200, 0, 0));
-
         wstring_view wstr_view(wstr);
         wstring_view wstr_cur;
         while(wstr_view.size() > 0){
@@ -226,6 +224,7 @@ namespace CWindows{
         tagRECT r;
         //Получаем размер клиентской части главного окна
         GetClientRect(GetParent(hwnd_), &r);
+        //wcout << r.left << ' ' << r.top + top_margin_ << ' ' << r.right - r.left << ' ' << r.bottom - r.top - top_margin_ - bottom_margin_ << '\n'; 
         MoveWindow(hwnd_, r.left, r.top + top_margin_, r.right - r.left, r.bottom - r.top - top_margin_ - bottom_margin_, true);
 
         //Получаем размер клиентской области для вывода текста
@@ -309,12 +308,14 @@ namespace CWindows{
         HDC hdc = BeginPaint(hwnd_, &ps);
         HDC hdc_mem = CreateCompatibleDC(hdc);
         SetBkMode(hdc_mem, TRANSPARENT);
-        HBITMAP hbitmap = CreateCompatibleBitmap(hdc, width_, height_);
+        //HBITMAP hbitmap = CreateCompatibleBitmap(hdc, width_, height_);
+        HBITMAP hbitmap = CreateCompatibleBitmap(hdc, ps.rcPaint.right, ps.rcPaint.bottom);
         SelectObject(hdc_mem, hbitmap);
         SelectObject(hdc_mem, font_);
         FillRect(hdc_mem, &ps.rcPaint, HBRUSH(COLOR_WINDOWFRAME));
 
-        display_lines_ = dw_->GetLines(num_line_, height_/height_string_);
+        //display_lines_ = dw_->GetLines(num_line_, height_/height_string_);
+        display_lines_ = dw_->GetLines(num_line_, ps.rcPaint.bottom/height_string_);
         if(!display_lines_.empty()){
             if(!current_event_){
                 MarkCurrentEvent(0, 0);
@@ -350,7 +351,8 @@ namespace CWindows{
         }
         DisplayCaret(hdc_mem);
         
-        BitBlt(hdc, 0, 0, width_, height_, hdc_mem, 0, 0, SRCCOPY);
+        //BitBlt(hdc, 0, 0, width_, height_, hdc_mem, 0, 0, SRCCOPY);
+        BitBlt(hdc, 0, 0, ps.rcPaint.right, ps.rcPaint.bottom, hdc_mem, 0, 0, SRCCOPY);
         DeleteObject(hbitmap);
         DeleteDC(hdc_mem);
         EndPaint(hwnd_, &ps);

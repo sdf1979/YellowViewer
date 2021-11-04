@@ -32,10 +32,6 @@ namespace TechLog1C{
 
     void ReadFilesCommitTrunsaction(TechLog1C::Db* db, vector<JornalRecord> journal_records, uint32_t count_lines_agr, EntitiesSave entities_save){
         MEASUREMENT;
-        // std::sort(journal_records.begin(), journal_records.end(), [](const JornalRecord& lhs, const JornalRecord& rhs)
-        // {
-        //     return lhs.time_ < rhs.time_;
-        // });
 
         db->BeginTrunsaction();
 
@@ -56,10 +52,23 @@ namespace TechLog1C{
         all_files_size_(0),
         obj_msg_(nullptr),
         fcn_msg_(nullptr),
+        events_load_(nullptr),
         db_(make_unique<Db>()){}
 
     DirectoryWatcher::~DirectoryWatcher(){
-        db_->Close();
+        Close();        
+    }
+
+    void DirectoryWatcher::Close(){
+        db_ = make_unique<Db>();
+
+        files_.clear();
+        events_.clear();
+        events_load_ = nullptr;
+        find_str_ = "";
+        count_lines_agr_find_ = 0;
+        files_is_read_ = false;
+        all_files_size_ = 0;
     }
 
     int DirectoryWatcher::CallbackLoadFiles(int argc, char **argv, char **azColName){
@@ -120,7 +129,7 @@ namespace TechLog1C{
         }
     }
 
-    void DirectoryWatcher::ReadDirectory(wstring directory_name){
+    bool DirectoryWatcher::ReadDirectory(wstring directory_name){
         MEASUREMENT;
         time_t cur_time = chrono::system_clock::to_time_t(chrono::system_clock::now());
         directory_ = filesystem::path(directory_name);
@@ -130,7 +139,7 @@ namespace TechLog1C{
             err.append(directory_name).append(L"' не найден или нет доступа!");
 
             MessageBoxW(NULL, err.c_str(), 0, 0);            
-            return;
+            return false;
         }
 
         files_.clear();
@@ -178,6 +187,7 @@ namespace TechLog1C{
         }
 
         db_->CommitTrunsaction();
+        return true;
     }
 
     unordered_map<string, uint32_t>::iterator InsertEntity(uint32_t& id, const string& name,  unordered_map<string, uint32_t>& entity_map, vector<pair<uint32_t, string>>& entity_new){
@@ -312,11 +322,13 @@ namespace TechLog1C{
                 mutex_read_files_commit_trunsaction.lock();
                 ReadFilesCommitTrunsaction(db_.get(), move(journal_records), count_lines_, move(entities_save));
             }
-            stringstream ss;
-            ss << "Всего данных: " << Format(all_files_size_/1024.0/1024.0, 2) << " Мб. ";
-            ss << "Событий: " << Format(db_->CountEvents(), 0) << ". Строк: " << Format(db_->CountLines(), 0) << ".";
-            fcn_msg_(obj_msg_, 1, ss.str());
-            db_->InsertString(ALL_DATA_LOAD, ss.str());
+            if(obj_msg_ && fcn_msg_){
+                stringstream ss;
+                ss << "Всего данных: " << Format(all_files_size_/1024.0/1024.0, 2) << " Мб. ";
+                ss << "Событий: " << Format(db_->CountEvents(), 0) << ". Строк: " << Format(db_->CountLines(), 0) << ".";
+                fcn_msg_(obj_msg_, 1, ss.str());
+                db_->InsertString(ALL_DATA_LOAD, ss.str());
+            }
         }
         else{
             fcn_msg_(obj_msg_, 1, db_->GetString(ALL_DATA_LOAD));            

@@ -19,8 +19,6 @@
 #include "timer_perf.h"
 
 namespace TechLog1C{
-    //typedef void (*FcnMsg)(void* obj, int part, std::string);
-    //typedef void (Db::*FcnInsertEntity)(unsigned int id, std::string_view name);
     using FcnMsg = void (*)(void* obj, int part, std::string); 
     using FcnInsertEntity = void (Db::*)(unsigned int id, std::string_view name);  
 
@@ -48,7 +46,8 @@ namespace TechLog1C{
     public:
         DirectoryWatcher();
         ~DirectoryWatcher();
-        void ReadDirectory(std::wstring directory_name);
+        void Close();
+        bool ReadDirectory(std::wstring directory_name);
         void ReadFiles();
         EventOut GetEvent(unsigned long long line);
         //pair<id event, string line>

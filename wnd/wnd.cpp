@@ -46,7 +46,8 @@ namespace CWindows{
     }
 
     void Wnd::OutConsole(std::wstring msg){
-        wcout << msg << endl;
+        //TODO DEBUG
+        //wcout << msg << endl;
     }
 
     LRESULT CALLBACK Wnd::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam){

@@ -39,9 +39,10 @@ namespace CWindows{
     void MainWindow::LoadFiles(std::wstring path){
         {
             MEASUREMENT;
-            directory_watcher_->ReadDirectory(path);
-            directory_watcher_->ReadFiles();
-            edit_->UpdateDisplay();
+            if(directory_watcher_->ReadDirectory(path)){
+                directory_watcher_->ReadFiles();
+                edit_->UpdateDisplay();
+            }
         }
 
         TechLog1C::TimerPerf* timer_perf = TechLog1C::TimerPerf::GetInstance();
@@ -75,7 +76,7 @@ namespace CWindows{
     LRESULT MainWindow::OnSize(WPARAM wparam, LPARAM lparam){
         tagRECT r;
         GetClientRect(hwnd_, &r);
-
+        
         SendMessageW(edit_->GetHWND(), WM_SIZE, wparam, lparam);
         SendMessageW(edit_->GetHWND(), WM_SETFOCUS, wparam, lparam);
         SendMessageW(status_bar_->GetHWND(), WM_SIZE, wparam, lparam);
@@ -125,6 +126,12 @@ namespace CWindows{
     LRESULT MainWindow::OnEndInput(WPARAM wparam, LPARAM lparam){
         HWND hwnd = (HWND)wparam;
         if(lparam == ID_PATH){
+            directory_watcher_->Close();
+            edit_->UpdateDisplay();
+            SendMessageW(find_->GetHWND(), WM_SETTEXT, 0, (LPARAM)L"");
+            SendMessageW(find_->GetHWND(), WM_PAINT, 0, 0);
+            OnStatusBarSetText((WPARAM)0, (LPARAM)L"");
+            OnStatusBarSetText((WPARAM)1, (LPARAM)L"");
             int length = SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0);
             std::wstring str(length + 1, L'\0');
             GetWindowTextW(hwnd, &str[0], str.size());
@@ -172,7 +179,7 @@ namespace CWindows{
     void App::Run(){
         if(!main_window){
             main_window = std::make_unique<MainWindow>();
-            main_window->Create(0, L"Yellow viewer", 300, 300, 800, 600, 0);
+            main_window->Create(0, L"Yellow viewer [ver. 02.11.2021]", 300, 300, 800, 600, 0);
             //TODO DEBUG
             //main_window->CreateConsole();
         }

@@ -282,7 +282,7 @@ namespace TechLog1C{
     void Second(const char** ch, Parser* const parser){
         char ch_ = **ch;
         if(ch_ != ':'){
-            parser->event_data.second_ = parser->event_data.second_ * 10 + (**ch - '0');
+            parser->event_data.second_ = parser->event_data.second_ * 10 + (ch_ - '0');
         }
         ++*ch;
         ++parser->offset_;
@@ -298,10 +298,10 @@ namespace TechLog1C{
     }
 
     void Duration(const char** ch, Parser* const parser){
-        char ch_ = **ch;
-        if(ch_ != '-'){
-            //parser->event_data.duration_ = parser->event_data.duration_ * 10 + (ch_ - '0');
-        }
+        // char ch_ = **ch;
+        // if(ch_ != '-'){
+        //     parser->event_data.duration_ = parser->event_data.duration_ * 10 + (ch_ - '0');
+        // }
         ++*ch;
         ++parser->offset_;
     }
@@ -316,10 +316,10 @@ namespace TechLog1C{
     }
 
     void Level(const char** ch, Parser* const parser){
-        char ch_ = **ch;
-        if(ch_ != ','){
-            //parser->event_data.level_ = parser->event_data.level_ * 10 + (ch_ - '0');
-        }
+        // char ch_ = **ch;
+        // if(ch_ != ','){
+        //     parser->event_data.level_ = parser->event_data.level_ * 10 + (ch_ - '0');
+        // }
         ++*ch;
         ++parser->offset_;
     }
@@ -349,7 +349,6 @@ namespace TechLog1C{
     void EndEvent(const char** ch, Parser* const parser){
         parser->event_data.offset_end_ = parser->offset_;
         parser->events_.push_back(move(parser->event_data));
-        //parser->AddEvent(move(parser->event_data));
     }
 
     void Mvalue(const char** ch, Parser* const parser){
@@ -371,7 +370,8 @@ namespace TechLog1C{
     }
 
     void Error(const char** ch, Parser* const parser){
-        wcout << L"Parser error!";
+        //TODO DEBUG
+        //wcout << L"Parser error!";
         throw "Parser error!";
     }
 
